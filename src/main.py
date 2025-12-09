@@ -3,7 +3,7 @@ from EDA_helper_fun import generate_plot
 from sklearn.preprocessing import OneHotEncoder, MultiLabelBinarizer
 
 if __name__ == '__main__':
-    dataset = pd.read_csv('C:/Users/dernj/Desktop/IA2_progetto/data/MathE.csv', sep = ';', encoding = 'latin-1')
+    dataset = pd.read_csv('data/MathE.csv', sep = ';', encoding = 'latin-1')
     #generate_plot(dataset)
 
     #we have to transform the single string 'keywords' into a list of words
@@ -23,4 +23,9 @@ if __name__ == '__main__':
     num_data = dataset.select_dtypes(include = ['float','int'])
     if 'Student ID' in num_data:
         num_data = num_data.drop(labels = ['Student ID'], axis = 1)
-    print(num_data.head())
+    
+    X = pd.concat((num_data, cat_data), axis = 1)
+    target = X['Type of Answer']
+    if 'Type of Answer' in X:
+        X = X.drop(labels = ['Type of Answer'], axis = 1)
+    
