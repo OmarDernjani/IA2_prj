@@ -1,5 +1,5 @@
 import pandas as pd
-from EDA_helper_fun import generate_plot
+from helper_fun import generate_plot
 from sklearn.preprocessing import OneHotEncoder, MultiLabelBinarizer
 from sklearn.model_selection import train_test_split
 
@@ -30,5 +30,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, target, random_state = 42
 X_train.to_csv('data/processed/X_train_MLB.csv')
 X_test.to_csv('data/processed/X_test_MLB.csv')
 y_train.to_csv('data/processed/y_train.csv')
-y_test.to_csv('data/preprocessed/y_test.csv')
+y_test.to_csv('data/processed/y_test.csv')
+
+####fare feature importance da baseline logistic regression, per vedere se encoding va bene####
 
