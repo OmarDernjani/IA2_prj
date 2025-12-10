@@ -1,8 +1,18 @@
+import os
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-import os
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    confusion_matrix,
+    roc_auc_score,
+    roc_curve,
+    classification_report
+)
 
 def plot_answer_distribution(df):
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
@@ -296,3 +306,59 @@ def generate_plot(df):
     plot_difficult_keywords(df, top_n=15)
     plot_correlation_matrix(df)
     plot_topic_subtopic_stats(df)
+
+def evaluate_models(models, X_test, y_test):
+    """
+    Modelli attesi come dict: {"nome": modello}
+    Ritorna un DataFrame con tutte le metriche
+    e mostra confusion matrix + ROC curve per ogni modello.
+    """
+
+    results = {}
+
+    for name, model in models.items():
+        y_pred = model.predict(X_test)
+        acc = accuracy_score(y_test, y_pred)
+        prec = precision_score(y_test, y_pred, average="weighted", zero_division=0)
+        rec = recall_score(y_test, y_pred, average="weighted", zero_division=0)
+        f1 = f1_score(y_test, y_pred, average="weighted", zero_division=0)
+
+        results[name] = {
+            "accuracy": acc,
+            "precision": prec,
+            "recall": rec,
+            "f1_score": f1,
+        }
+
+        print("\nClassification Report:")
+        print(classification_report(y_test, y_pred))
+
+        cm = confusion_matrix(y_test, y_pred)
+        plt.figure(figsize=(6, 4))
+        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+        plt.title(f"Confusion Matrix - {name}")
+        plt.xlabel("Predicted")
+        plt.ylabel("True")
+        plt.show()
+        try:
+            if hasattr(model, "predict_proba"):
+                y_prob = model.predict_proba(X_test)
+
+                if len(np.unique(y_test)) == 2:
+                    auc = roc_auc_score(y_test, y_prob[:, 1])
+                    fpr, tpr, _ = roc_curve(y_test, y_prob[:, 1])
+
+                    plt.figure(figsize=(6, 4))
+                    plt.plot(fpr, tpr)
+                    plt.plot([0, 1], [0, 1], linestyle="--")
+                    plt.xlabel("False Positive Rate")
+                    plt.ylabel("True Positive Rate")
+                    plt.title(f"ROC Curve - {name} (AUC = {auc:.4f})")
+                    plt.show()
+                
+                results[name]["roc_auc"] = auc
+
+        except Exception as e:
+            print(f"ROC-AUC non calcolabile per {name}: {e}")
+
+    return pd.DataFrame(results).T
