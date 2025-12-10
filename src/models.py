@@ -1,0 +1,6 @@
+from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
+from sklearn.naive_bayes import MultinomialNB, BernoulliNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
+from sklearn.model_selection import GridSearchCV
