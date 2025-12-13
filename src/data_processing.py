@@ -6,6 +6,8 @@ from sklearn.model_selection import train_test_split
 dataset = pd.read_csv('data/raw/MathE.csv', sep=';', encoding='latin-1')
 categorical_single = ["Student Country", "Question Level", "Topic", "Subtopic"]
 
+#generate_plot(dataset)
+
 #MultiLabelBinarizer for Keywords
 dataset_mlb = dataset.copy()
 dataset_mlb['Keywords'] = dataset_mlb['Keywords'].str.split(',')
