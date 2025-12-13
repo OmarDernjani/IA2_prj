@@ -33,7 +33,7 @@ def plot_answer_distribution(df):
     axes[1].set_title('Answer Distribution Percentage')
 
     plt.tight_layout()
-    plt.savefig(os.path.join("results", "output1.jpg"))
+    plt.savefig(os.path.join("results/eda_res", "output1.jpg"))
     plt.show()
 
 def plot_performance_by_country(df):
@@ -61,7 +61,7 @@ def plot_performance_by_country(df):
     axes[1].grid(axis='y', alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(os.path.join("results", "output2.jpg"))
+    plt.savefig(os.path.join("results/eda_res", "output2.jpg"))
     plt.show()
 
 def plot_country_heatmap(df):
@@ -76,7 +76,7 @@ def plot_country_heatmap(df):
     plt.xlabel('Question Level')
     plt.ylabel('Country')
     plt.tight_layout()
-    plt.savefig(os.path.join("results", "output3.jpg"))
+    plt.savefig(os.path.join("results/eda_res", "output3.jpg"))
     plt.show()
 
 def plot_question_difficulty(df):
@@ -98,7 +98,7 @@ def plot_question_difficulty(df):
     axes[1].grid(axis='y', alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(os.path.join("results", "output4.jpg"))
+    plt.savefig(os.path.join("results/eda_res", "output4.jpg"))
     plt.show()
 
 def plot_topic_analysis(df):
@@ -124,7 +124,7 @@ def plot_topic_analysis(df):
     axes[1].grid(axis='x', alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(os.path.join("results", "output5.jpg"))
+    plt.savefig(os.path.join("results/eda_res", "output5.jpg"))
     plt.show()
 
 def plot_topic_subtopic_heatmap(df):
@@ -139,7 +139,7 @@ def plot_topic_subtopic_heatmap(df):
     plt.ylabel('Topic')
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
-    plt.savefig(os.path.join("results", "output6.jpg"))
+    plt.savefig(os.path.join("results/eda_res", "output6.jpg"))
     plt.show()
 
 def plot_student_distribution(df):
@@ -163,7 +163,7 @@ def plot_student_distribution(df):
     axes[1].grid(axis='y', alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(os.path.join("results", "output7.jpg"))
+    plt.savefig(os.path.join("results/eda_res", "output7.jpg"))
     plt.show()
 
 def plot_question_analysis(df):
@@ -187,7 +187,7 @@ def plot_question_analysis(df):
     axes[1].grid(axis='y', alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(os.path.join("results", "output8.jpg"))
+    plt.savefig(os.path.join("results/eda_res", "output8.jpg"))
     plt.show()
 
 def plot_student_performance_scatter(df):
@@ -205,7 +205,7 @@ def plot_student_performance_scatter(df):
     plt.title('Student Performance: Questions Answered vs Accuracy')
     plt.grid(alpha=0.3)
     plt.tight_layout()
-    plt.savefig(os.path.join("results", "output9.jpg"))
+    plt.savefig(os.path.join("results/eda_res", "output9.jpg"))
     plt.show()
 
 def plot_grouped_performance(df):
@@ -219,7 +219,7 @@ def plot_grouped_performance(df):
     plt.xticks(rotation=45)
     plt.grid(axis='y', alpha=0.3)
     plt.tight_layout()
-    plt.savefig(os.path.join("results", "output10.jpg"))
+    plt.savefig(os.path.join("results/eda_res", "output10.jpg"))
     plt.show()
 
 def plot_difficult_keywords(df, top_n=15):
@@ -242,7 +242,7 @@ def plot_difficult_keywords(df, top_n=15):
     plt.title(f'Top {top_n} Keywords in Difficult Questions (Accuracy < 50%)')
     plt.grid(axis='x', alpha=0.3)
     plt.tight_layout()
-    plt.savefig(os.path.join("results", "output11.jpg"))
+    plt.savefig(os.path.join("results/eda_res", "output11.jpg"))
     plt.show()
 
 def plot_correlation_matrix(df):
@@ -260,7 +260,7 @@ def plot_correlation_matrix(df):
                 center=0, square=True, linewidths=1)
     plt.title('Correlation Matrix')
     plt.tight_layout()
-    plt.savefig(os.path.join("results", "output12.jpg"))
+    plt.savefig(os.path.join("results/eda_res", "output12.jpg"))
     plt.show()
 
 def plot_topic_subtopic_stats(df):
@@ -289,7 +289,7 @@ def plot_topic_subtopic_stats(df):
     axes[1].grid(axis='x', alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(os.path.join("results", "output13.jpg"))
+    plt.savefig(os.path.join("results/eda_res", "output13.jpg"))
     plt.show()
 
 def generate_plot(df):
