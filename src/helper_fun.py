@@ -19,7 +19,7 @@ def plot_answer_distribution(df):
 
     # Bar plot
     answer_counts = df['Type of Answer'].value_counts()
-    axes[0].bar(answer_counts.index, answer_counts.values, color=['#2ecc71', '#e74c3c'])
+    axes[0].bar(answer_counts.index, answer_counts.values, color=['#e74c3c', '#2ecc71'])
     axes[0].set_xlabel('Type of Answer (0=Incorrect, 1=Correct)')
     axes[0].set_ylabel('Count')
     axes[0].set_title('Distribution of Answers')
