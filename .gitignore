@@ -57,3 +57,7 @@ coverage.xml
 #Dataset 
 data/processed
 data/raw
+
+#Results
+results/eda_res
+results/model_res
