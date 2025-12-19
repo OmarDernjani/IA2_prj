@@ -53,3 +53,8 @@ htmlcov/
 .coverage.*
 coverage.xml
 *.cover
+
+#Dataset 
+data/
+processed
+raw
