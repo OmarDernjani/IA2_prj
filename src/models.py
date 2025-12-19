@@ -1,109 +1,191 @@
 import pandas as pd
+import numpy as np
 from sklearn.linear_model import LogisticRegression
-from sklearn.naive_bayes import MultinomialNB, BernoulliNB
+from sklearn.naive_bayes import BernoulliNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.discriminant_analysis import (
+    LinearDiscriminantAnalysis,
+    QuadraticDiscriminantAnalysis
+)
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
 from helper_fun import evaluate_models
-import numpy as np
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 
 PATH = 'data/processed/'
-SAVING_PATH = 'results/model_res'
+SAVING_PATH = 'results/model_res/'
 
-#Load MLB datasets
-X_train_mlb = pd.read_csv(PATH + 'X_train_MLB.csv')
-X_test_mlb = pd.read_csv(PATH + 'X_test_MLB.csv')
-y_train = pd.read_csv(PATH + 'y_train.csv')['Type of Answer']
-y_test = pd.read_csv(PATH + 'y_test.csv')['Type of Answer']
 
-#Load OHE datasets
-X_train_ohe = pd.read_csv(PATH + 'X_train_OHE.csv')
-X_test_ohe = pd.read_csv(PATH + 'X_test_OHE.csv')
-y_train_ohe = pd.read_csv(PATH + 'y_train_OHE.csv')['Type of Answer']
-y_test_ohe = pd.read_csv(PATH + 'y_test_OHE.csv')['Type of Answer']
+X_train = pd.read_csv(PATH + 'X_train.csv')
+X_test = pd.read_csv(PATH + 'X_test.csv')
 
-# Instantiate models for MLB
-models_mlb = {
-    "Logistic Regression": LogisticRegression(max_iter=1000),
-    "Multinomial NB": MultinomialNB(),
+y_train = pd.read_csv(PATH + 'y_train.csv').squeeze()
+y_test = pd.read_csv(PATH + 'y_test.csv').squeeze()
+
+
+
+models = {
+    "Logistic Regression": LogisticRegression(
+        max_iter=2000,
+        solver='liblinear'
+    ),
+
     "Bernoulli NB": BernoulliNB(),
-    "KNN": KNeighborsClassifier(),
-    "Decision Tree": DecisionTreeClassifier(random_state=42),
+
+    "KNN": Pipeline([
+        ('scaler', StandardScaler()),
+        ('knn', KNeighborsClassifier(n_neighbors=5))
+    ]),
+
+    "Decision Tree": DecisionTreeClassifier(
+        random_state=42,
+        max_depth=10
+    ),
+
     "LDA": LinearDiscriminantAnalysis(),
-    "QDA": QuadraticDiscriminantAnalysis()
+
+    "QDA": QuadraticDiscriminantAnalysis(
+        reg_param=0.1
+    ),
+
+    "Random Forest": RandomForestClassifier(
+    n_estimators=300,
+    max_depth=15,
+    min_samples_leaf=50,
+    random_state=42,
+    n_jobs=-1
+)
 }
 
-# Train models on MLB data
-for name, model in models_mlb.items():
+
+for name, model in models.items():
     print(f"Training {name}...")
-    model.fit(X_train_mlb, y_train)
+    model.fit(X_train, y_train)
 
-# Evaluate MLB models
-results_mlb = evaluate_models(models_mlb, X_test_mlb, y_test)
-print("\nMLB Encoding Results:")
-print(results_mlb)
 
-# Feature importance for MLB
-feature_importance_mlb = pd.DataFrame({
-    'Feature': X_train_mlb.columns,
-    'Coefficient': models_mlb["Logistic Regression"].coef_[0],
-    'Odds_Ratio': np.exp(models_mlb["Logistic Regression"].coef_[0])
+results = evaluate_models(models, X_test, y_test)
+
+print("\nModel Results:")
+print(results)
+
+
+logreg = models["Logistic Regression"]
+
+feature_importance = pd.DataFrame({
+    'Feature': X_train.columns,
+    'Coefficient': logreg.coef_[0],
 })
 
-feature_importance_mlb['Abs_Coefficient'] = feature_importance_mlb['Coefficient'].abs()
-print(feature_importance_mlb.sort_values(by='Abs_Coefficient', ascending=False).head(20))
+feature_importance['Odds_Ratio'] = np.exp(feature_importance['Coefficient'])
+feature_importance['Abs_Coefficient'] = feature_importance['Coefficient'].abs()
 
-# Instantiate models for OHE
-models_ohe = {
-    "Logistic Regression": LogisticRegression(max_iter=1000),
-    "Multinomial NB": MultinomialNB(),
-    "Bernoulli NB": BernoulliNB(),
-    "KNN": KNeighborsClassifier(),
-    "Decision Tree": DecisionTreeClassifier(random_state=42),
-    "LDA": LinearDiscriminantAnalysis(),
-    "QDA": QuadraticDiscriminantAnalysis()
-}
+feature_importance = feature_importance.sort_values(
+    by='Abs_Coefficient',
+    ascending=False
+)
 
-# Train models on OHE data
-for name, model in models_ohe.items():
-    print(f"Training {name}...")
-    model.fit(X_train_ohe, y_train_ohe)
+print("\nTop 20 Features (LogReg):")
+print(feature_importance.head(20))
 
-# Evaluate OHE models
-results_ohe = evaluate_models(models_ohe, X_test_ohe, y_test_ohe)
-print("\nOHE Encoding Results:")
-print(results_ohe)
+feature_importance.to_csv(
+    SAVING_PATH + 'feature_importance_logreg.csv',
+    index=False
+)
 
-# Feature importance for OHE
-feature_importance_ohe = pd.DataFrame({
-    'Feature': X_train_ohe.columns,
-    'Coefficient': models_ohe["Logistic Regression"].coef_[0],
-    'Odds_Ratio': np.exp(models_ohe["Logistic Regression"].coef_[0])
-})
+results.to_csv(
+    SAVING_PATH + 'model_results.csv',
+    index=False
+)
 
+metric_cols = [
+    col for col in results.columns
+    if 'accur' in col.lower()
+    or 'auc' in col.lower()
+    or 'f1' in col.lower()
+]
 
-feature_importance_ohe['Abs_Coefficient'] = feature_importance_ohe['Coefficient'].abs()
-print(feature_importance_ohe.sort_values(by='Abs_Coefficient', ascending=False).head(20))
-
-# Save feature importance results
-feature_importance_mlb.sort_values(by='Abs_Coefficient', ascending=False).to_csv(SAVING_PATH + 'feature_importance_MLB.csv', index=False)
-feature_importance_ohe.sort_values(by='Abs_Coefficient', ascending=False).to_csv(SAVING_PATH + 'feature_importance_OHE.csv', index=False)
-
-# Save model results
-results_mlb.to_csv(SAVING_PATH + 'model_results_MLB.csv', index=False)
-results_ohe.to_csv(SAVING_PATH + 'model_results_OHE.csv', index=False)
-
-# Find the metric column (could be 'Accuracy', 'accuracy', or another metric)
-metric_cols = [col for col in results_mlb.columns if 'accur' in col.lower() or 'score' in col.lower()]
 if metric_cols:
-    metric_col = metric_cols[0]
-    print(f"\nUsing metric: {metric_col}")
-    print("\nBest MLB Model:")
-    print(results_mlb.loc[results_mlb[metric_col].idxmax()])
-    print("\nBest OHE Model:")
-    print(results_ohe.loc[results_ohe[metric_col].idxmax()])
-else:
-    print("\nMLB Results:")
-    print(results_mlb)
-    print("\nOHE Results:")
-    print(results_ohe)
+    metric = metric_cols[0]
+    best = results.loc[results[metric].idxmax()]
+
+    print(f"\nBest model by {metric}:")
+    print(best)
+
+import pandas as pd
+from sklearn.model_selection import GridSearchCV
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.metrics import make_scorer, roc_auc_score, accuracy_score
+
+# Caricamento dati (solo features principali)
+X_train = pd.read_csv('data/processed/X_train.csv')
+X_test = pd.read_csv('data/processed/X_test.csv')
+y_train = pd.read_csv('data/processed/y_train.csv').squeeze()
+y_test = pd.read_csv('data/processed/y_test.csv').squeeze()
+
+# Scorers
+scorers = {
+    'roc_auc': make_scorer(roc_auc_score, needs_proba=True),
+    'accuracy': make_scorer(accuracy_score)
+}
+
+# 1️⃣ Random Forest
+rf = RandomForestClassifier(random_state=42, n_jobs=-1)
+
+rf_params = {
+    'n_estimators': [100, 200, 300],
+    'max_depth': [5, 10, 15, None],
+    'min_samples_leaf': [1, 5, 10]
+}
+
+rf_grid = GridSearchCV(
+    rf, rf_params,
+    scoring='roc_auc',
+    cv=5,
+    n_jobs=-1,
+    verbose=1
+)
+rf_grid.fit(X_train, y_train)
+print("Best RF params:", rf_grid.best_params_)
+print("Best RF ROC AUC:", rf_grid.best_score_)
+
+# 2️⃣ Logistic Regression
+lr = LogisticRegression(max_iter=2000, solver='liblinear')
+
+lr_params = {
+    'C': [0.01, 0.1, 1, 10],
+    'penalty': ['l1', 'l2']
+}
+
+lr_grid = GridSearchCV(
+    lr, lr_params,
+    scoring='roc_auc',
+    cv=5,
+    n_jobs=-1,
+    verbose=1
+)
+lr_grid.fit(X_train, y_train)
+print("Best LR params:", lr_grid.best_params_)
+print("Best LR ROC AUC:", lr_grid.best_score_)
+
+# 3️⃣ LDA
+lda = LinearDiscriminantAnalysis()
+
+lda_params = {
+    'solver': ['svd', 'lsqr', 'eigen'],
+    'shrinkage': [None, 0.1, 0.5, 1]  # funziona solo con lsqr/eigen
+}
+
+lda_grid = GridSearchCV(
+    lda, lda_params,
+    scoring='roc_auc',
+    cv=5,
+    n_jobs=-1,
+    verbose=1
+)
+lda_grid.fit(X_train, y_train)
+print("Best LDA params:", lda_grid.best_params_)
+print("Best LDA ROC AUC:", lda_grid.best_score_)
