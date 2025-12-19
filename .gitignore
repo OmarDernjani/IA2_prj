@@ -55,6 +55,5 @@ coverage.xml
 *.cover
 
 #Dataset 
-data/
-processed
-raw
+data/processed
+data/raw
