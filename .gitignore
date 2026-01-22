@@ -40,24 +40,7 @@ Thumbs.db
 .env
 .env.local
 
-# Logs
-*.log
-
-# Database
-*.db
-*.sqlite3
-
-# Coverage reports
-htmlcov/
-.coverage
-.coverage.*
-coverage.xml
-*.cover
 
 #Dataset 
 data/processed
 data/raw
-
-#Results
-results/eda_res
-results/model_res
