@@ -1,27 +1,24 @@
-
+# torch dependecies
 torch
 torchvision
 torchaudio
 pytorch-lightning
 
+# base stack
 numpy
 pandas
 scipy
-
 scikit-learn
 
-
+# plot
 matplotlib
-seaborn
-plotly           
+seaborn        
 
-
+# ipy
 jupyterlab
 ipykernel
 notebook
 
 #Utilities & Progress Bars
 tqdm        
-pyyaml    
-hydra-core
-wandb
+pyyaml
