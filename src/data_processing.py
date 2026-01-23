@@ -148,6 +148,25 @@ def encode_categorical_features(train_df, test_df, categorical_columns):
     
     return df_cat_train, df_cat_test
 
+def student_level_split(df, test_size=0.2, random_state=42):
+    """
+    Split dataset at student level to prevent leakage.
+    Entire student histories go to either train or test.
+    """
+    student_ids = df['Student ID'].unique()
+    np.random.seed(random_state)
+    np.random.shuffle(student_ids)
+    
+    split_idx = int(len(student_ids) * (1 - test_size))
+    train_students = student_ids[:split_idx]
+    test_students = student_ids[split_idx:]
+    
+    train_data = df[df['Student ID'].isin(train_students)]
+    test_data = df[df['Student ID'].isin(test_students)]
+    
+    return train_data, test_data
+
+
 
 def preprocess_data(data_path, output_path, test_size=0.2, random_state=42):
     """
@@ -163,14 +182,11 @@ def preprocess_data(data_path, output_path, test_size=0.2, random_state=42):
     dataset = load_data(data_path)
     
     
-    # Train-test split
-    train_data, test_data = train_test_split(
+    train_data, test_data = student_level_split(
         dataset, 
         test_size=test_size, 
         random_state=random_state
     )
-    print(f"Train size: {len(train_data)} ({len(train_data)/len(dataset)*100:.1f}%)")
-    print(f"Test size:  {len(test_data)} ({len(test_data)/len(dataset)*100:.1f}%)")
     
     
     # Feature engineering
