@@ -1,7 +1,0 @@
-dropout: 0.2
-hidden_dims: !!python/tuple
-- 128
-- 64
-input_dim: 56
-lr: 0.001
-results_dir: ./results/model_res
