@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 from sklearn.model_selection import train_test_split
 
 
@@ -13,125 +13,218 @@ TEST_SIZE = 0.2
 
 #Load dataset
 def load_data(file_path):
-    """Load and sort dataset by student and question to preserve temporal order."""
+    """Load dataset."""
     df = pd.read_csv(file_path, sep=';', encoding='latin-1')
-    df = df.sort_values(['Student ID', 'Question ID']).reset_index(drop=True)
     print(f"Dataset loaded: {df.shape[0]} rows, {df.shape[1]} columns")
+    print(f"Columns: {df.columns.tolist()}")
     return df
 
 
-#Feature engineering 
+#Feature engineering basato sulle domande
 
-def compute_student_features(df):
+def compute_question_statistics(df):
     """
-    Compute cumulative student performance metrics.
-    For each student, calculate their success rate and number of attempts
-    up to (but not including) the current question.
+    Compute statistics for each question based on student responses.
+    These features help predict question difficulty.
     """
-    student_blocks = []
+    # Group by Question ID and compute aggregates
+    question_stats = df.groupby('Question ID').agg({
+        'Type of Answer': ['mean', 'std', 'count'],  # Success rate, variability, attempts
+        'Student ID': 'nunique'  # Number of unique students who attempted
+    }).reset_index()
     
-    for student_id, df_student in df.groupby('Student ID'):
-        df_student = df_student.copy()
+    # Flatten column names
+    question_stats.columns = [
+        'Question ID',
+        'question_success_rate',  # % of correct answers
+        'question_success_std',   # Variability in success
+        'question_attempt_count', # Total attempts
+        'question_unique_students' # Number of students
+    ]
+    
+    # Fill NaN std with 0 (happens when only 1 attempt)
+    question_stats['question_success_std'] = question_stats['question_success_std'].fillna(0)
+    
+    return question_stats
+
+
+def compute_topic_statistics(df):
+    """
+    Compute statistics for each topic and subtopic.
+    """
+    # Topic statistics
+    topic_stats = df.groupby('Topic').agg({
+        'Type of Answer': ['mean', 'count']
+    }).reset_index()
+    topic_stats.columns = ['Topic', 'topic_avg_success', 'topic_question_count']
+    
+    # Subtopic statistics
+    subtopic_stats = df.groupby('Subtopic').agg({
+        'Type of Answer': ['mean', 'count']
+    }).reset_index()
+    subtopic_stats.columns = ['Subtopic', 'subtopic_avg_success', 'subtopic_question_count']
+    
+    return topic_stats, subtopic_stats
+
+
+def compute_country_statistics(df):
+    """
+    Compute how students from different countries perform on each question.
+    This can indicate cultural/linguistic difficulty.
+    """
+    country_question_stats = df.groupby(['Question ID', 'Student Country']).agg({
+        'Type of Answer': 'mean'
+    }).reset_index()
+    
+    # Compute variance across countries for each question
+    country_variance = country_question_stats.groupby('Question ID').agg({
+        'Type of Answer': 'std'
+    }).reset_index()
+    country_variance.columns = ['Question ID', 'question_country_variance']
+    country_variance['question_country_variance'] = country_variance['question_country_variance'].fillna(0)
+    
+    return country_variance
+
+
+def compute_keyword_features(df):
+    """
+    Extract features from the Keywords column.
+    These can indicate question complexity.
+    """
+    # Complex mathematical terms that might indicate difficulty
+    complex_terms = [
+        'derivative', 'integral', 'limit', 'matrix', 'theorem',
+        'probability', 'distribution', 'variance', 'covariance',
+        'eigenvalue', 'eigenvector', 'polynomial', 'optimization',
+        'differential', 'logarithm', 'exponential', 'series',
+        'convergence', 'divergence', 'transformation', 'complex'
+    ]
+    
+    keyword_features = []
+    
+    for qid, group in df.groupby('Question ID'):
+        keywords_str = group['Keywords'].iloc[0]
         
-        # Cumulative success rate (shifted to avoid data leakage)
-        cumsum = df_student['Type of Answer'].expanding().sum().shift(1)
-        cnt = df_student['Type of Answer'].expanding().count().shift(1)
-        df_student['student_success_rate'] = (cumsum / cnt).fillna(0.5)
+        # Handle missing or empty keywords
+        if pd.isna(keywords_str) or keywords_str.strip() == '':
+            keyword_features.append({
+                'Question ID': qid,
+                'num_keywords': 0,
+                'avg_keyword_length': 0,
+                'has_complex_term': 0
+            })
+            continue
         
-        # Cumulative number of attempts
-        df_student['student_num_attempts'] = cnt.fillna(0).astype(int)
+        # Split keywords by comma
+        keywords = [k.strip() for k in str(keywords_str).split(',')]
         
-        student_blocks.append(df_student)
-    
-    return pd.concat(student_blocks).sort_index()
-
-
-def compute_student_topic_features(df):
-    """
-    Compute cumulative success rate for each student on each topic.
-    This captures how well a student performs on specific topics over time.
-    """
-    student_topic_blocks = []
-    
-    for student_id, df_student in df.groupby('Student ID'):
-        df_student = df_student.copy()
-        df_student['student_topic_success_rate'] = 0.5
+        # Number of keywords
+        num_kw = len(keywords)
         
-        for topic, df_topic in df_student.groupby('Topic'):
-            cumsum = df_topic['Type of Answer'].expanding().sum().shift(1)
-            cnt = df_topic['Type of Answer'].expanding().count().shift(1)
-            topic_success = (cumsum / cnt).fillna(0.5)
-            df_student.loc[df_topic.index, 'student_topic_success_rate'] = topic_success
+        # Average keyword length
+        avg_len = np.mean([len(k) for k in keywords]) if keywords else 0
         
-        student_topic_blocks.append(df_student)
+        # Check for complex mathematical terms
+        has_complex = int(any(
+            term.lower() in keywords_str.lower() 
+            for term in complex_terms
+        ))
+        
+        keyword_features.append({
+            'Question ID': qid,
+            'num_keywords': num_kw,
+            'avg_keyword_length': avg_len,
+            'has_complex_term': has_complex
+        })
     
-    return pd.concat(student_topic_blocks).sort_index()
+    return pd.DataFrame(keyword_features)
 
 
-def compute_question_features(train_df, test_df):
+def compute_derived_features(question_df):
     """
-    Compute question difficulty based on historical success rates.
-    Uses only training data to avoid data leakage.
+    Compute derived features from existing ones.
+    These can capture non-linear relationships.
     """
-    global_avg = train_df['Type of Answer'].mean()
+    # Success to attempts ratio (normalized success rate)
+    question_df['success_attempts_ratio'] = (
+        question_df['question_success_rate'] / 
+        (question_df['question_attempt_count'] + 1)  # +1 to avoid division by zero
+    )
     
-    # Question-level difficulty
-    question_stats = train_df.groupby('Question ID')['Type of Answer'].mean()
-    train_df['question_difficulty'] = train_df['Question ID'].map(question_stats).fillna(global_avg)
-    test_df['question_difficulty'] = test_df['Question ID'].map(question_stats).fillna(global_avg)
+    # Interaction: topic success vs question success (difficulty gap)
+    question_df['topic_difficulty_gap'] = (
+        question_df['topic_avg_success'] - question_df['question_success_rate']
+    )
     
-    # Question level as binary
-    train_df['question_level_advanced'] = (train_df['Question Level'] == 'advanced').astype(int)
-    test_df['question_level_advanced'] = (test_df['Question Level'] == 'advanced').astype(int)
+    # Interaction: subtopic success vs question success
+    question_df['subtopic_difficulty_gap'] = (
+        question_df['subtopic_avg_success'] - question_df['question_success_rate']
+    )
     
-    return train_df, test_df
+    # Student engagement: unique students / total attempts
+    question_df['student_engagement'] = (
+        question_df['question_unique_students'] / 
+        (question_df['question_attempt_count'] + 1)
+    )
+    
+    # Popularity score: log-transformed attempt count
+    question_df['question_popularity'] = np.log1p(question_df['question_attempt_count'])
+    
+    return question_df
 
 
-def compute_topic_features(train_df, test_df):
+def aggregate_to_question_level(df):
     """
-    Compute topic and subtopic difficulty based on historical success rates.
-    Uses only training data to avoid data leakage.
+    Aggregate the dataset to question level.
+    Each question appears only once with its features and target label.
     """
-    global_avg = train_df['Type of Answer'].mean()
+    # Get unique questions with their metadata
+    question_df = df.groupby('Question ID').first()[['Question Level', 'Topic', 'Subtopic', 'Keywords']].reset_index()
     
-    # Topic-level difficulty
-    topic_stats = train_df.groupby('Topic')['Type of Answer'].mean()
-    train_df['topic_difficulty'] = train_df['Topic'].map(topic_stats)
-    test_df['topic_difficulty'] = test_df['Topic'].map(topic_stats).fillna(global_avg)
+    # Compute question statistics
+    question_stats = compute_question_statistics(df)
     
-    # Subtopic-level difficulty
-    subtopic_stats = train_df.groupby('Subtopic')['Type of Answer'].mean()
-    train_df['subtopic_difficulty'] = train_df['Subtopic'].map(subtopic_stats)
-    test_df['subtopic_difficulty'] = test_df['Subtopic'].map(subtopic_stats).fillna(global_avg)
+    # Merge statistics
+    question_df = question_df.merge(question_stats, on='Question ID', how='left')
     
-    return train_df, test_df
+    # Add country variance
+    country_variance = compute_country_statistics(df)
+    question_df = question_df.merge(country_variance, on='Question ID', how='left')
+    
+    # Compute topic and subtopic statistics
+    topic_stats, subtopic_stats = compute_topic_statistics(df)
+    question_df = question_df.merge(topic_stats, on='Topic', how='left')
+    question_df = question_df.merge(subtopic_stats, on='Subtopic', how='left')
+    
+    # Add keyword features
+    keyword_features = compute_keyword_features(df)
+    question_df = question_df.merge(keyword_features, on='Question ID', how='left')
+    
+    # Add derived features
+    question_df = compute_derived_features(question_df)
+    
+    print(f"Aggregated to {question_df.shape[0]} unique questions")
+    return question_df
 
 
-def compute_country_features(train_df, test_df):
+def encode_target(train_df, test_df, target_column='Question Level'):
     """
-    Compute country-level performance statistics.
-    Uses only training data to avoid data leakage.
+    Encode target labels: Basic -> 0, Advanced -> 1
     """
-    global_avg = train_df['Type of Answer'].mean()
-    country_stats = train_df.groupby('Student Country')['Type of Answer'].mean()
+    le = LabelEncoder()
     
-    train_df['country_avg_performance'] = train_df['Student Country'].map(country_stats)
-    test_df['country_avg_performance'] = test_df['Student Country'].map(country_stats).fillna(global_avg)
+    # Fit on combined data to ensure same encoding
+    all_labels = pd.concat([train_df[target_column], test_df[target_column]])
+    le.fit(all_labels)
     
-    return train_df, test_df
+    train_df['target'] = le.transform(train_df[target_column])
+    test_df['target'] = le.transform(test_df[target_column])
+    
+    print(f"Target encoding: {dict(zip(le.classes_, le.transform(le.classes_)))}")
+    
+    return train_df, test_df, le
 
 
-def compute_interaction_features(df):
-    """
-    Create interaction features that capture relationships between
-    student ability and question/topic difficulty.
-    """
-    df['topic_familiarity'] = df['student_topic_success_rate'] - df['topic_difficulty']
-    df['ability_difficulty_gap'] = df['student_success_rate'] - df['question_difficulty']
-    return df
-
-
-#Encoding function
 def encode_categorical_features(train_df, test_df, categorical_columns):
     """
     Apply one-hot encoding to categorical features.
@@ -148,111 +241,96 @@ def encode_categorical_features(train_df, test_df, categorical_columns):
     
     return df_cat_train, df_cat_test
 
-def student_level_split(df, test_size=0.2, random_state=42):
-    """
-    Split dataset at student level to prevent leakage.
-    Entire student histories go to either train or test.
-    """
-    student_ids = df['Student ID'].unique()
-    np.random.seed(random_state)
-    np.random.shuffle(student_ids)
-    
-    split_idx = int(len(student_ids) * (1 - test_size))
-    train_students = student_ids[:split_idx]
-    test_students = student_ids[split_idx:]
-    
-    train_data = df[df['Student ID'].isin(train_students)]
-    test_data = df[df['Student ID'].isin(test_students)]
-    
-    return train_data, test_data
-
-
 
 def preprocess_data(data_path, output_path, test_size=0.2, random_state=42):
     """
     Complete preprocessing pipeline:
     1. Load data
-    2. Split into train/test
-    3. Apply feature engineering
-    4. Encode categorical features
-    5. Save processed datasets
+    2. Aggregate to question level
+    3. Split into train/test
+    4. Encode target
+    5. Encode categorical features
+    6. Save processed datasets
     """
     
     # Load data
     dataset = load_data(data_path)
     
+    # Aggregate to question level
+    question_df = aggregate_to_question_level(dataset)
     
-    train_data, test_data = student_level_split(
-        dataset, 
+    # Split into train/test at question level
+    train_data, test_data = train_test_split(
+        question_df, 
         test_size=test_size, 
-        random_state=random_state
+        random_state=random_state,
+        stratify=question_df['Question Level']  # Stratified split
     )
     
+    print(f"Train set: {train_data.shape[0]} questions")
+    print(f"Test set: {test_data.shape[0]} questions")
+    print(f"\nTrain distribution:\n{train_data['Question Level'].value_counts()}")
+    print(f"\nTest distribution:\n{test_data['Question Level'].value_counts()}")
     
-    # Feature engineering
-    train_data = compute_student_features(train_data)
-    test_data = compute_student_features(test_data)
-
-    train_data = compute_student_topic_features(train_data)
-    test_data = compute_student_topic_features(test_data)
-
-    train_data, test_data = compute_question_features(train_data, test_data)
-    
-    train_data, test_data = compute_topic_features(train_data, test_data)
-
-    train_data, test_data = compute_country_features(train_data, test_data)
-
-    train_data = compute_interaction_features(train_data)
-    test_data = compute_interaction_features(test_data)
-    
+    # Encode target
+    train_data, test_data, label_encoder = encode_target(train_data, test_data)
     
     # Define feature sets
     numeric_features = [
-        'student_success_rate',
-        'student_num_attempts',
-        'student_topic_success_rate',
-        'question_difficulty',
-        'question_level_advanced',
-        'topic_difficulty',
-        'subtopic_difficulty',
-        'country_avg_performance',
-        'topic_familiarity',
-        'ability_difficulty_gap'
+        # Base question statistics
+        'question_success_rate',
+        'question_success_std',
+        'question_attempt_count',
+        'question_unique_students',
+        'question_country_variance',
+        # Topic/Subtopic statistics
+        'topic_avg_success',
+        'topic_question_count',
+        'subtopic_avg_success',
+        'subtopic_question_count',
+        # Keyword features
+        'num_keywords',
+        'avg_keyword_length',
+        'has_complex_term',
+        # Derived features
+        'success_attempts_ratio',
+        'topic_difficulty_gap',
+        'subtopic_difficulty_gap',
+        'student_engagement',
+        'question_popularity'
     ]
     
-    categorical_columns = ['Topic', 'Subtopic', 'Student Country']
+    categorical_columns = ['Topic', 'Subtopic']
     
-    print(f"Numeric features: {len(numeric_features)}")
+    print(f"\nNumeric features: {len(numeric_features)}")
     print(f"Categorical columns: {len(categorical_columns)}")
-    
     
     # Encode categorical features
     df_cat_train, df_cat_test = encode_categorical_features(
         train_data, test_data, categorical_columns
     )
     
-    
     # Combine features
-    
     X_num_train = train_data[numeric_features]
     X_num_test = test_data[numeric_features]
     
-    X_train = pd.concat([X_num_train, df_cat_train], axis=1)
-    X_test = pd.concat([X_num_test, df_cat_test], axis=1)
+    X_train = pd.concat([X_num_train.reset_index(drop=True), df_cat_train.reset_index(drop=True)], axis=1)
+    X_test = pd.concat([X_num_test.reset_index(drop=True), df_cat_test.reset_index(drop=True)], axis=1)
     
-    y_train = train_data['Type of Answer']
-    y_test = test_data['Type of Answer']
+    y_train = train_data['target'].reset_index(drop=True)
+    y_test = test_data['target'].reset_index(drop=True)
     
-    print(f"Final training set: {X_train.shape}")
+    print(f"\nFinal training set: {X_train.shape}")
     print(f"Final test set: {X_test.shape}")
-    
+    print(f"Feature names: {X_train.columns.tolist()[:10]}... (showing first 10)")
     
     # Save processed data
-    
     X_train.to_csv(output_path + 'X_train.csv', index=False)
     X_test.to_csv(output_path + 'X_test.csv', index=False)
     y_train.to_csv(output_path + 'y_train.csv', index=False)
     y_test.to_csv(output_path + 'y_test.csv', index=False)
+    
+    print(f"\nData saved to {output_path}")
     
     return X_train, X_test, y_train, y_test
 

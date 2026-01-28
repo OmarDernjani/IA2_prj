@@ -23,7 +23,7 @@ RESULTS_PATH = 'results/model_res/'
 RANDOM_STATE = 42
 N_JOBS = -1
 CV_FOLDS = 5
-SCORING_METRIC = 'roc_auc'
+SCORING_METRIC = 'accuracy'
 
 #Load Dataset
 
@@ -69,12 +69,13 @@ def compute_baseline(X_train, X_test, y_train, y_test):
     return baseline_acc
 
 
-def get_baseline_models(random_state=42, n_jobs=-1):
+def get_baseline_models(random_state=42, n_jobs=-1, use_class_weight=True):
     """Define baseline models with default hyperparameters."""
     models = {
         "Logistic Regression": LogisticRegression(
             max_iter=2000,
             solver='liblinear',
+            class_weight='balanced' if use_class_weight else None,
             random_state=random_state
         ),
         
@@ -87,6 +88,7 @@ def get_baseline_models(random_state=42, n_jobs=-1):
         
         "Decision Tree": DecisionTreeClassifier(
             max_depth=10,
+            class_weight='balanced' if use_class_weight else None,
             random_state=random_state
         ),
         
@@ -100,6 +102,7 @@ def get_baseline_models(random_state=42, n_jobs=-1):
             n_estimators=300,
             max_depth=15,
             min_samples_leaf=50,
+            class_weight='balanced' if use_class_weight else None,
             random_state=random_state,
             n_jobs=n_jobs
         ),
@@ -184,14 +187,16 @@ def analyze_feature_importance(model, feature_names, results_path, top_n=15):
 
 def tune_random_forest(X_train, y_train, random_state=42, n_jobs=-1, 
                        scoring='roc_auc', cv=5):
-    """Tune Random Forest hyperparameters."""
+    """Tune Random Forest hyperparameters with class balancing."""
     
     rf = RandomForestClassifier(random_state=random_state, n_jobs=n_jobs)
     
     param_grid = {
-        'n_estimators': [100, 200, 300],
-        'max_depth': [5, 10, 15, None],
-        'min_samples_leaf': [1, 5, 10, 20]
+        'n_estimators': [100, 200, 300, 500],
+        'max_depth': [5, 10, 15, 20, None],
+        'min_samples_leaf': [1, 2, 5, 10],
+        'min_samples_split': [2, 5, 10],
+        'class_weight': ['balanced', 'balanced_subsample', None]
     }
     
     grid_search = GridSearchCV(
@@ -213,13 +218,14 @@ def tune_random_forest(X_train, y_train, random_state=42, n_jobs=-1,
 
 def tune_logistic_regression(X_train, y_train, random_state=42, n_jobs=-1,
                              scoring='roc_auc', cv=5):
-    """Tune Logistic Regression hyperparameters."""
+    """Tune Logistic Regression hyperparameters with class balancing."""
     
     lr = LogisticRegression(max_iter=2000, solver='liblinear', random_state=random_state)
     
     param_grid = {
-        'C': [0.001, 0.01, 0.1, 1, 10, 100],
-        'penalty': ['l1', 'l2']
+        'C': [0.001, 0.01, 0.1, 0.5, 1, 5, 10, 50, 100],
+        'penalty': ['l1', 'l2'],
+        'class_weight': ['balanced', None]
     }
     
     grid_search = GridSearchCV(
@@ -268,15 +274,18 @@ def tune_lda(X_train, y_train, n_jobs=-1, scoring='roc_auc', cv=5):
 
 def tune_gradient_boosting(X_train, y_train, random_state=42, n_jobs=-1,
                            scoring='roc_auc', cv=5):
-    """Tune Gradient Boosting hyperparameters."""
+    """Tune Gradient Boosting hyperparameters.
+    Note: GradientBoosting doesn't support class_weight, but we can use sample weighting.
+    """
     
     gb = GradientBoostingClassifier(random_state=random_state)
     
     param_grid = {
-        'n_estimators': [100, 200, 300],
-        'learning_rate': [0.01, 0.05, 0.1, 0.2],
-        'max_depth': [3, 5, 7],
-        'min_samples_leaf': [1, 5, 10]
+        'n_estimators': [50, 100, 200, 300],
+        'learning_rate': [0.01, 0.05, 0.1, 0.15, 0.2],
+        'max_depth': [3, 4, 5, 6, 7],
+        'min_samples_leaf': [1, 3, 5, 10],
+        'subsample': [0.8, 0.9, 1.0]
     }
     
     grid_search = GridSearchCV(

@@ -43,4 +43,10 @@ Thumbs.db
 
 #Dataset 
 data/processed
-data/raw
+
+#utils
+test_quick.py
+view_results.py
+explore_data.py
+create_roc_curves.py
+create_confusion_matrices.py

@@ -2,15 +2,15 @@
 
 
 ## Project Description
-This project, developed for the Artificial Intelligence 2 (IA2) course, focuses on Knowledge Tracing using the MathE Dataset. The goal is to train a Machine Learning model to predict the correctness (True/False) of a student's next answer. Please consult the LaTeX documentation for full project details.
+This project, developed for the Artificial Intelligence 2 (IA2) course, focuses on **Question Difficulty Classification** using the MathE Dataset. The goal is to train a Machine Learning model to predict the difficulty level (Basic/Advanced) of mathematical questions based on their characteristics and historical student performance. Please consult the LaTeX documentation for full project details.
 
 ### Key Features
 * Modular training pipeline using `scikit-learn` and `pytorch-lightning`.
+* Question-level feature engineering based on performance statistics, topic analysis, and cross-country variance.
 * Data analysis using `Pandas`, `Numpy`, `Matplotlib` and `Seaborn`.
 * Experiment tracking (Loss, Accuracy) via logging.
-* Data preprocessing and augmentation pipeline.
+* Data preprocessing and aggregation pipeline.
 * Reproducible environment configuration.
-* Full set of feature engineering.
 
 ---
 
