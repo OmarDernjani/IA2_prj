@@ -40,7 +40,6 @@ IA2_prj/
 │   ├── mlp.py
 │   └── models.py
 ├── .python-version
-├── model_best.pt
 ├── requirements.txt
 ├── report.pdf
 └── README.md 
