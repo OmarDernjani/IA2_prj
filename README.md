@@ -19,9 +19,9 @@ This project, developed for the Artificial Intelligence 2 (IA2) course, focuses 
 ```text
 IA2_prj/
 ├── data/
-│   ├──processed/           #ignored by gitignore
-│   └──raw/                 #ignored by gitignore
-├── logs/                   #hyperparams and logging once started training
+│   ├──processed/           
+│   └──raw/                
+├── logs/                  
 ├── results/
 │   ├──eda_res/
 │   │     ├── figure1.jpg
